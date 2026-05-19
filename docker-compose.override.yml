@@ -1,0 +1,11 @@
+services:
+  php:
+    volumes:
+      - ./backend:/var/www/html
+
+  nextjs:
+    volumes:
+      - ./frontend:/app
+    environment:
+      - NODE_ENV=development
+      - WATCHPACK_POLLING=true
