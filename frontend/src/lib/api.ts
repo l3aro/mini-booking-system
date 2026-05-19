@@ -1,0 +1,159 @@
+import axios, { type AxiosInstance, type AxiosResponse, type InternalAxiosRequestConfig } from "axios";
+
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  is_admin: boolean;
+}
+
+export interface Room {
+  id: number;
+  name: string;
+  capacity: number;
+}
+
+export interface Booking {
+  id: number;
+  room_id: number;
+  room?: Room;
+  user_name: string;
+  start_time: string;
+  end_time: string;
+  created_at: string;
+}
+
+export interface AvailabilitySlot {
+  start_time: string;
+  end_time: string;
+  available: boolean;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: User;
+}
+
+const api: AxiosInstance = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "/api",
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
+});
+
+api.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    if (typeof window !== "undefined") {
+      const token = localStorage.getItem("auth_token");
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
+    return config;
+  },
+  (error) => Promise.reject(error),
+);
+
+api.interceptors.response.use(
+  (response: AxiosResponse) => response,
+  (error) => {
+    if (error.response?.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("auth_user");
+      if (!window.location.pathname.startsWith("/login")) {
+        window.location.href = "/login";
+      }
+    }
+    return Promise.reject(error);
+  },
+);
+
+export const login = async (email: string, password: string): Promise<AuthResponse> => {
+  const response = await api.post<AuthResponse>("/login", { email, password });
+  return response.data;
+};
+
+export const register = async (data: {
+  name: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
+}): Promise<AuthResponse> => {
+  const response = await api.post<AuthResponse>("/register", data);
+  return response.data;
+};
+
+export const logout = async (): Promise<void> => {
+  await api.post("/logout");
+};
+
+export const getUser = async (): Promise<{ data: User }> => {
+  const response = await api.get<{ data: User }>("/user");
+  return response.data;
+};
+
+export const getRooms = async (): Promise<{ data: Room[] }> => {
+  const response = await api.get<{ data: Room[] }>("/rooms");
+  return response.data;
+};
+
+export const getRoom = async (id: number): Promise<{ data: Room }> => {
+  const response = await api.get<{ data: Room }>(`/rooms/${id}`);
+  return response.data;
+};
+
+export const createRoom = async (data: { name: string; capacity: number; user_name?: string }): Promise<{ data: Room }> => {
+  const response = await api.post<{ data: Room }>("/rooms", data);
+  return response.data;
+};
+
+export const updateRoom = async (id: number, data: { name?: string; capacity?: number; user_name?: string }): Promise<{ data: Room }> => {
+  const response = await api.put<{ data: Room }>(`/rooms/${id}`, data);
+  return response.data;
+};
+
+export const deleteRoom = async (id: number): Promise<void> => {
+  await api.delete(`/rooms/${id}`);
+};
+
+export const getBookings = async (params?: {
+  filter?: string;
+  room_id?: number;
+  date?: string;
+}): Promise<{ data: Booking[] }> => {
+  const response = await api.get<{ data: Booking[] }>("/bookings", { params });
+  return response.data;
+};
+
+export const createBooking = async (data: {
+  room_id: number;
+  start_time: string;
+  end_time: string;
+}): Promise<{ data: Booking }> => {
+  const response = await api.post<{ data: Booking }>("/bookings", data);
+  return response.data;
+};
+
+export const deleteBooking = async (id: number): Promise<void> => {
+  await api.delete(`/bookings/${id}`);
+};
+
+export const getRoomBookings = async (roomId: number, date?: string): Promise<{ data: Booking[] }> => {
+  const response = await api.get<{ data: Booking[] }>(`/rooms/${roomId}/bookings`, {
+    params: { date },
+  });
+  return response.data;
+};
+
+export const getAvailability = async (
+  roomId: number,
+  date?: string,
+): Promise<{ data: AvailabilitySlot[] }> => {
+  const response = await api.get<{ data: AvailabilitySlot[] }>(`/rooms/${roomId}/availability`, {
+    params: { date },
+  });
+  return response.data;
+};
+
+export default api;
