@@ -7,7 +7,6 @@ import timezone from 'dayjs/plugin/timezone';
 import { RoomStatusInfo, RoomStatus, getUserTimezone } from '@/lib/api';
 import * as api from '@/lib/api';
 import {
-  CalendarDays,
   RefreshCw,
   ChevronLeft,
   ChevronRight,
@@ -129,6 +128,16 @@ export default function RoomStatusDashboard() {
         </h2>
 
         <div className="flex items-center gap-2">
+          {!isToday && (
+            <button
+              type="button"
+              onClick={handleToday}
+              className="flex h-8 items-center justify-center rounded-md border border-zinc-200 px-3 text-sm font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            >
+              Today
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handlePrevDay}
@@ -139,15 +148,20 @@ export default function RoomStatusDashboard() {
           </button>
 
           <div className="flex items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-sm dark:border-zinc-800">
-            <CalendarDays size={14} className="text-zinc-500" />
-            <span className="font-medium text-zinc-800 dark:text-zinc-200">
-              {dayjs(selectedDate).tz(TZ).format('MMM D, YYYY')}
-            </span>
             {isToday && (
               <span className="ml-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
                 Today
               </span>
             )}
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => {
+                setSelectedDate(e.target.value);
+                setExpandedRoom(null);
+              }}
+              className="w-[130px] cursor-pointer bg-transparent font-medium text-zinc-800 outline-none dark:text-zinc-200 [color-scheme:light] dark:[color-scheme:dark]"
+            />
           </div>
 
           <button
@@ -158,16 +172,6 @@ export default function RoomStatusDashboard() {
           >
             <ChevronRight size={16} />
           </button>
-
-          {!isToday && (
-            <button
-              type="button"
-              onClick={handleToday}
-              className="flex h-8 items-center justify-center rounded-md border border-zinc-200 px-3 text-sm font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800"
-            >
-              Today
-            </button>
-          )}
 
           <button
             type="button"
