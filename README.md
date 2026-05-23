@@ -1,6 +1,6 @@
 # Co-working Space Booking System
 
-Mini booking management system for co-working spaces. Users view room availability and create bookings. Admins manage rooms and all bookings.
+Mini booking management system for co-working spaces. Users view room availability and create bookings. Admins manage rooms, bookings, and monitor real-time room status via dashboard.
 
 ## Tech Stack
 
@@ -23,6 +23,9 @@ Mini booking management system for co-working spaces. Users view room availabili
 # 1. Configure environment
 cp backend/.env.example backend/.env
 
+# (Optional) Use custom host port to avoid conflicts
+cp docker-compose.override.example.yml docker-compose.override.yml
+
 # 2. Generate app key
 docker compose run --rm php php artisan key:generate
 
@@ -34,6 +37,8 @@ docker compose exec php php artisan migrate:fresh --seed
 ```
 
 Access the application at **http://localhost:8080**.
+
+> Edit `docker-compose.override.yml` to set your desired port. The file is gitignored.
 
 ## Architecture
 
@@ -52,6 +57,7 @@ No CORS needed. Same origin for frontend and API.
 | Service | Internal | External |
 |---------|----------|----------|
 | Application | - | http://localhost:8080 |
+| Admin Dashboard | - | http://localhost:8080/dashboard |
 | API | http://nginx/api | http://localhost:8080/api |
 | PostgreSQL | postgres:5432 | localhost:5432 |
 | Redis | redis:6379 | localhost:6379 |
@@ -139,31 +145,34 @@ curl "http://localhost:8080/api/rooms/1/availability?date=2026-05-20"
 ## Project Structure
 
 ```
-├── docker-compose.yml        # Docker services (nginx, php, postgres, redis, nextjs)
+├── docker-compose.yml
+├── docker-compose.override.yml
+├── docker-compose.override.example.yml
 ├── nginx/
-│   └── default.conf          # nginx reverse proxy config
-├── backend/                  # Laravel 13 API
+├── backend/
 │   ├── app/
 │   │   ├── Http/
-│   │   │   ├── Controllers/  # Auth, Room, Booking controllers
-│   │   │   ├── Requests/     # Form request validation
-│   │   │   └── Resources/    # API resource transformers
-│   │   ├── Models/           # Room, Booking, User
-│   │   ├── Repositories/     # BookingRepository
-│   │   └── Services/         # BookingService (overlap logic)
-│   ├── config/               # App configuration
+│   │   │   ├── Controllers/
+│   │   │   ├── Requests/
+│   │   │   └── Resources/
+│   │   ├── Models/
+│   │   ├── Repositories/
+│   │   └── Services/
+│   ├── config/
 │   ├── database/
-│   │   ├── migrations/       # Database schema
-│   │   └── seeders/          # Sample data
+│   │   ├── migrations/
+│   │   └── seeders/
 │   ├── routes/
-│   │   └── api.php           # API route definitions
-│   └── tests/                # Pest feature tests
-├── frontend/                 # Next.js 16 app
+│   └── tests/
+├── frontend/
 │   ├── src/
-│   │   ├── app/              # App Router pages
-│   │   ├── components/       # React components
-│   │   ├── contexts/         # Auth, Room contexts
-│   │   └── lib/              # API client (Axios)
-│   └── package.json
-└── backend/.env.example      # Environment variable documentation
+│   │   ├── app/
+│   │   │   ├── (auth)/
+│   │   │   └── dashboard/
+│   │   ├── components/
+│   │   │   └── admin/
+│   │   ├── contexts/
+│   │   └── lib/
+│   └── __tests__/
+└── backend/.env.example
 ```
