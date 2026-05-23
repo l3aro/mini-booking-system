@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
@@ -24,8 +24,7 @@ export default function BookingList({ roomId, date, refreshKey }: BookingListPro
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshKey forces re-fetch when same-date booking created
-  const fetchBookings = useCallback(async () => {
+  const fetchBookings = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -36,11 +35,12 @@ export default function BookingList({ roomId, date, refreshKey }: BookingListPro
     } finally {
       setLoading(false);
     }
-  }, [roomId, date, refreshKey]);
+  };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchBookings recreates every render; roomId/date/refreshKey are the actual reactive deps
   useEffect(() => {
     fetchBookings();
-  }, [fetchBookings]);
+  }, [roomId, date, refreshKey]);
 
   const handleDelete = async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this booking?')) return;

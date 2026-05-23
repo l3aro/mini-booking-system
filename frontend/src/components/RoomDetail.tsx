@@ -7,7 +7,7 @@ import BookingList from './BookingList';
 import BookingCreateForm from './BookingCreateForm';
 
 export default function RoomDetail() {
-  const { selectedRoom, refreshBookings } = useRooms();
+  const { selectedRoom } = useRooms();
   const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'));
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -18,7 +18,6 @@ export default function RoomDetail() {
   const handleBookingCreated = (bookingDate: string) => {
     setDate(bookingDate);
     setRefreshKey((k) => k + 1);
-    refreshBookings();
   };
 
   return (
