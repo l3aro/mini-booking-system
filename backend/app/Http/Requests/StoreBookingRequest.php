@@ -20,7 +20,6 @@ class StoreBookingRequest extends FormRequest
             'room_id' => ['required', 'exists:rooms,id'],
             'start_time' => ['required', 'date', 'after_or_equal:now'],
             'end_time' => ['required', 'date', 'after:start_time'],
-            'user_name' => ['sometimes', 'string', 'max:255'],
         ];
     }
 }

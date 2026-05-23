@@ -14,12 +14,13 @@ return new class extends Migration
         Schema::create('bookings', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->foreignId('room_id')->constrained()->cascadeOnDelete();
-            $table->string('user_name');
+            $table->foreignId('user_id')->nullable()->constrained()->cascadeOnDelete();
             $table->dateTimeTz('start_time');
             $table->dateTimeTz('end_time');
             $table->timestamps();
 
             $table->index('room_id');
+            $table->index('user_id');
             $table->index(['room_id', 'start_time', 'end_time']);
         });
     }

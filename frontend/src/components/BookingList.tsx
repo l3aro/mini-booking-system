@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
@@ -21,26 +21,35 @@ interface BookingListProps {
 export default function BookingList({ roomId, date, refreshKey }: BookingListProps) {
   const { user, isAdmin } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await getRoomBookings(roomId, date);
+      const response = await getRoomBookings(roomId, date, { page, per_page: 20 });
       setBookings(response.data);
+      setTotalPages(response.meta?.last_page ?? 1);
     } catch {
       setError('Failed to load bookings');
     } finally {
       setLoading(false);
     }
-  };
+  }, [roomId, date, page]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchBookings recreates every render; roomId/date/refreshKey are the actual reactive deps
   useEffect(() => {
+    void refreshKey;
     fetchBookings();
-  }, [roomId, date, refreshKey]);
+  }, [fetchBookings, refreshKey]);
+
+  useEffect(() => {
+    void roomId;
+    void date;
+    setPage(1);
+  }, [roomId, date]);
 
   const handleDelete = async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this booking?')) return;
@@ -71,6 +80,7 @@ export default function BookingList({ roomId, date, refreshKey }: BookingListPro
       <div data-testid="booking-list" className="flex flex-col items-center gap-4 rounded-xl border border-zinc-200 p-8 text-center dark:border-zinc-800">
         <p className="text-zinc-600 dark:text-zinc-400">{error}</p>
         <button
+          type="button"
           onClick={fetchBookings}
           className="flex h-10 items-center justify-center rounded-full bg-foreground px-5 text-sm font-medium text-background transition-colors hover:bg-zinc-800 dark:hover:bg-zinc-200"
         >
@@ -104,6 +114,7 @@ export default function BookingList({ roomId, date, refreshKey }: BookingListPro
             </div>
             {canDelete(booking) && (
               <button
+                type="button"
                 onClick={() => handleDelete(booking.id)}
                 data-testid={`delete-booking-${booking.id}`}
                 className="flex h-8 items-center justify-center rounded-full border border-solid border-red-200 px-4 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
@@ -114,6 +125,26 @@ export default function BookingList({ roomId, date, refreshKey }: BookingListPro
           </div>
         ))
       )}
+
+      <div className="flex items-center justify-between pt-1">
+        <button
+          type="button"
+          onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+          disabled={page === 1 || loading}
+          className="flex h-9 items-center justify-center rounded-full border border-zinc-200 px-4 text-sm font-medium text-foreground transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+        >
+          Prev
+        </button>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">Page {page} of {Math.max(1, totalPages)}</p>
+        <button
+          type="button"
+          onClick={() => setPage((prev) => Math.min(Math.max(1, totalPages), prev + 1))}
+          disabled={page >= Math.max(1, totalPages) || loading}
+          className="flex h-9 items-center justify-center rounded-full border border-zinc-200 px-4 text-sm font-medium text-foreground transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+        >
+          Next
+        </button>
+      </div>
     </div>
   );
 }

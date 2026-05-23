@@ -40,7 +40,7 @@ it('authenticated user can create booking', function () {
     $response->assertStatus(201)
         ->assertJsonStructure([
             'data' => [
-                'id', 'room_id', 'user_name', 'start_time', 'end_time', 'room',
+                'id', 'room_id', 'user_id', 'user_name', 'start_time', 'end_time', 'room',
             ],
         ]);
 });
@@ -131,7 +131,7 @@ it('can filter bookings by mine', function () {
     // Create booking as Jane via direct DB (avoid token switching)
     Booking::create([
         'room_id' => $this->room->id,
-        'user_name' => 'Jane',
+        'user_id' => $this->otherUser->id,
         'start_time' => '2026-06-01T10:00:00Z',
         'end_time' => '2026-06-01T11:00:00Z',
     ]);
@@ -202,6 +202,98 @@ it('can get availability slots', function () {
         ]);
 });
 
+it('availability full-day booking has no available slots', function () {
+    Booking::create([
+        'room_id' => $this->room->id,
+        'user_id' => $this->user->id,
+        'start_time' => '2026-06-01T08:00:00Z',
+        'end_time' => '2026-06-01T18:00:00Z',
+    ]);
+
+    $response = $this->getJson('/api/rooms/' . $this->room->id . '/availability?date=2026-06-01');
+
+    $response->assertStatus(200);
+    expect(collect($response->json('data'))->every(fn ($slot) => $slot['available'] === false))->toBeTrue();
+});
+
+it('availability with no bookings has all slots available', function () {
+    $response = $this->getJson('/api/rooms/' . $this->room->id . '/availability?date=2026-06-01');
+
+    $response->assertStatus(200);
+    expect(collect($response->json('data'))->every(fn ($slot) => $slot['available'] === true))->toBeTrue();
+});
+
+it('availability handles back to back bookings with no gap', function () {
+    Booking::create([
+        'room_id' => $this->room->id,
+        'user_id' => $this->user->id,
+        'start_time' => '2026-06-01T09:00:00Z',
+        'end_time' => '2026-06-01T10:00:00Z',
+    ]);
+    Booking::create([
+        'room_id' => $this->room->id,
+        'user_id' => $this->otherUser->id,
+        'start_time' => '2026-06-01T10:00:00Z',
+        'end_time' => '2026-06-01T11:00:00Z',
+    ]);
+
+    $response = $this->getJson('/api/rooms/' . $this->room->id . '/availability?date=2026-06-01');
+
+    $response->assertStatus(200);
+    $slots = collect($response->json('data'));
+
+    expect($slots->firstWhere('start_time', '2026-06-01T09:00:00+00:00')['available'])->toBeFalse();
+    expect($slots->firstWhere('start_time', '2026-06-01T09:30:00+00:00')['available'])->toBeFalse();
+    expect($slots->firstWhere('start_time', '2026-06-01T10:00:00+00:00')['available'])->toBeFalse();
+    expect($slots->firstWhere('start_time', '2026-06-01T10:30:00+00:00')['available'])->toBeFalse();
+    expect($slots->firstWhere('start_time', '2026-06-01T11:00:00+00:00')['available'])->toBeTrue();
+});
+
+it('availability respects booking on operating-hour boundary', function () {
+    Booking::create([
+        'room_id' => $this->room->id,
+        'user_id' => $this->user->id,
+        'start_time' => '2026-06-01T08:00:00Z',
+        'end_time' => '2026-06-01T09:00:00Z',
+    ]);
+
+    $response = $this->getJson('/api/rooms/' . $this->room->id . '/availability?date=2026-06-01');
+
+    $response->assertStatus(200);
+    $slots = collect($response->json('data'));
+
+    expect($slots->first()['start_time'])->toBe('2026-06-01T08:00:00+00:00');
+    expect($slots->firstWhere('start_time', '2026-06-01T08:00:00+00:00')['available'])->toBeFalse();
+    expect($slots->firstWhere('start_time', '2026-06-01T08:30:00+00:00')['available'])->toBeFalse();
+    expect($slots->firstWhere('start_time', '2026-06-01T09:00:00+00:00')['available'])->toBeTrue();
+});
+
+it('availability marks multiple overlapping bookings as unavailable', function () {
+    Booking::create([
+        'room_id' => $this->room->id,
+        'user_id' => $this->user->id,
+        'start_time' => '2026-06-01T09:00:00Z',
+        'end_time' => '2026-06-01T10:30:00Z',
+    ]);
+    Booking::create([
+        'room_id' => $this->room->id,
+        'user_id' => $this->otherUser->id,
+        'start_time' => '2026-06-01T10:00:00Z',
+        'end_time' => '2026-06-01T11:00:00Z',
+    ]);
+
+    $response = $this->getJson('/api/rooms/' . $this->room->id . '/availability?date=2026-06-01');
+
+    $response->assertStatus(200);
+    $slots = collect($response->json('data'));
+
+    expect($slots->firstWhere('start_time', '2026-06-01T09:00:00+00:00')['available'])->toBeFalse();
+    expect($slots->firstWhere('start_time', '2026-06-01T09:30:00+00:00')['available'])->toBeFalse();
+    expect($slots->firstWhere('start_time', '2026-06-01T10:00:00+00:00')['available'])->toBeFalse();
+    expect($slots->firstWhere('start_time', '2026-06-01T10:30:00+00:00')['available'])->toBeFalse();
+    expect($slots->firstWhere('start_time', '2026-06-01T11:00:00+00:00')['available'])->toBeTrue();
+});
+
 it('admin can delete any booking', function () {
     $this->withToken($this->userToken)
         ->postJson('/api/bookings', [
@@ -222,7 +314,7 @@ it('non-admin cannot delete others booking', function () {
     // Create booking directly (avoid Sanctum guard caching across requests)
     $booking = Booking::create([
         'room_id' => $this->room->id,
-        'user_name' => 'John',
+        'user_id' => $this->user->id,
         'start_time' => '2026-06-01T09:00:00Z',
         'end_time' => '2026-06-01T10:00:00Z',
     ]);

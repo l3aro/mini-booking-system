@@ -41,6 +41,15 @@ export interface Booking {
   created_at: string;
 }
 
+export interface PaginationMeta {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  from: number | null;
+  to: number | null;
+}
+
 export interface AvailabilitySlot {
   start_time: string;
   end_time: string;
@@ -121,12 +130,12 @@ export const getRoom = async (id: number): Promise<{ data: Room }> => {
   return response.data;
 };
 
-export const createRoom = async (data: { name: string; capacity: number; user_name?: string }): Promise<{ data: Room }> => {
+export const createRoom = async (data: { name: string; capacity: number }): Promise<{ data: Room }> => {
   const response = await api.post<{ data: Room }>("/rooms", data);
   return response.data;
 };
 
-export const updateRoom = async (id: number, data: { name?: string; capacity?: number; user_name?: string }): Promise<{ data: Room }> => {
+export const updateRoom = async (id: number, data: { name?: string; capacity?: number }): Promise<{ data: Room }> => {
   const response = await api.put<{ data: Room }>(`/rooms/${id}`, data);
   return response.data;
 };
@@ -139,8 +148,12 @@ export const getBookings = async (params?: {
   filter?: string;
   room_id?: number;
   date?: string;
-}): Promise<{ data: Booking[] }> => {
-  const response = await api.get<{ data: Booking[] }>("/bookings", { params });
+  date_from?: string;
+  date_to?: string;
+  page?: number;
+  per_page?: number;
+}): Promise<{ data: Booking[]; meta?: PaginationMeta }> => {
+  const response = await api.get<{ data: Booking[]; meta?: PaginationMeta }>("/bookings", { params });
   return response.data;
 };
 
@@ -157,14 +170,24 @@ export const deleteBooking = async (id: number): Promise<void> => {
   await api.delete(`/bookings/${id}`);
 };
 
-export const getRoomBookings = async (roomId: number, date?: string): Promise<{ data: Booking[] }> => {
-  const params: Record<string, string> = {};
+export const getRoomBookings = async (
+  roomId: number,
+  date?: string,
+  options?: { page?: number; per_page?: number },
+): Promise<{ data: Booking[]; meta?: PaginationMeta }> => {
+  const params: Record<string, string | number> = {};
   if (date) {
     const tz = getUserTimezone();
     params.date_from = dayjs.tz(date, tz).startOf('day').utc().toISOString();
     params.date_to = dayjs.tz(date, tz).endOf('day').utc().toISOString();
   }
-  const response = await api.get<{ data: Booking[] }>(`/rooms/${roomId}/bookings`, { params });
+  if (options?.page) {
+    params.page = options.page;
+  }
+  if (options?.per_page) {
+    params.per_page = options.per_page;
+  }
+  const response = await api.get<{ data: Booking[]; meta?: PaginationMeta }>(`/rooms/${roomId}/bookings`, { params });
   return response.data;
 };
 
@@ -190,25 +213,24 @@ export interface RoomStatusInfo {
   nextBooking: Booking | null;
 }
 
-/** Fetch all rooms + today's bookings and derive status for each room. */
+/** Fetch all rooms + today's bookings (server-scoped by date) and derive status for each room. */
 export async function getRoomStatuses(date?: string): Promise<RoomStatusInfo[]> {
-  const [roomsRes, bookingsRes] = await Promise.all([
-    getRooms(),
-    getBookings({ filter: 'all' }),
-  ]);
-
-  const rooms = roomsRes.data;
-  const allBookings = bookingsRes.data;
-
   const tz = getUserTimezone();
   const target = date ? dayjs.tz(date, tz) : dayjs().tz(tz);
   const targetStart = target.startOf('day');
   const targetEnd = target.endOf('day');
 
-  const dayBookings = allBookings.filter((b) => {
-    const start = dayjs.utc(b.start_time).tz(tz);
-    return start.isBetween(targetStart, targetEnd, null, '[]');
-  });
+  const [roomsRes, bookingsRes] = await Promise.all([
+    getRooms(),
+    getBookings({
+      filter: 'all',
+      date_from: targetStart.utc().toISOString(),
+      date_to: targetEnd.utc().toISOString(),
+    }),
+  ]);
+
+  const rooms = roomsRes.data;
+  const dayBookings = bookingsRes.data;
 
   const now = dayjs().tz(tz);
 

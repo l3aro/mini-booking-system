@@ -66,7 +66,7 @@ No CORS needed. Same origin for frontend and API.
 
 | Role | Email | Password |
 |------|-------|----------|
-| Admin | admin@cowork.com | password |
+| Admin | admin@example.com | password |
 | User | john@example.com | password |
 | User | jane@example.com | password |
 
@@ -126,7 +126,7 @@ docker compose exec nextjs npm run test
 ```bash
 curl -X POST http://localhost:8080/api/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@cowork.com","password":"password"}'
+  -d '{"email":"admin@example.com","password":"password"}'
 ```
 
 **Create booking (use token from login):**

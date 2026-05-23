@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\User;
 use App\Repositories\BookingRepository;
 use Carbon\Carbon;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -24,7 +25,7 @@ class BookingService
         }
 
         return DB::transaction(function () use ($data, $user) {
-            $data['user_name'] = $data['user_name'] ?? $user->name;
+            $data['user_id'] = $data['user_id'] ?? $user->id;
 
             return Booking::create($data);
         });
@@ -43,7 +44,7 @@ class BookingService
             return false;
         }
 
-        if (! $user->is_admin && $booking->user_name !== $user->name) {
+        if (! $user->is_admin && $booking->user_id !== $user->id) {
             return false;
         }
 
@@ -53,6 +54,60 @@ class BookingService
     public function getRoomAvailability(int $roomId, string $date): Collection
     {
         return $this->bookingRepo->findByRoomAndDate($roomId, $date);
+    }
+
+    public function getRoomBookings(int $roomId, ?string $date, ?string $dateFrom, ?string $dateTo, ?int $perPage = null): Collection|LengthAwarePaginator
+    {
+        return $this->bookingRepo->getRoomBookings($roomId, $date, $dateFrom, $dateTo, $perPage);
+    }
+
+    public function getAvailabilitySlots(int $roomId, string $date): array
+    {
+        $open = Carbon::parse($date . ' ' . config('coworking.operating_hours.open', '08:00'));
+        $close = Carbon::parse($date . ' ' . config('coworking.operating_hours.close', '18:00'));
+
+        $bookings = Booking::query()
+            ->where('room_id', $roomId)
+            ->where('start_time', '<', $close)
+            ->where('end_time', '>', $open)
+            ->orderBy('start_time')
+            ->get();
+
+        $slots = [];
+        $current = $open->copy();
+        $interval = (int) config('coworking.availability_interval', 30);
+        $bookingIdx = 0;
+        $bookingCount = $bookings->count();
+
+        while ($current < $close) {
+            $slotEnd = $current->copy()->addMinutes($interval);
+
+            if ($slotEnd > $close) {
+                $slotEnd = $close->copy();
+            }
+
+            while ($bookingIdx < $bookingCount && $bookings[$bookingIdx]->end_time <= $current) {
+                $bookingIdx++;
+            }
+
+            $available = true;
+            if ($bookingIdx < $bookingCount) {
+                $booking = $bookings[$bookingIdx];
+                if ($current < $booking->end_time && $slotEnd > $booking->start_time) {
+                    $available = false;
+                }
+            }
+
+            $slots[] = [
+                'start_time' => $current->toIso8601String(),
+                'end_time' => $slotEnd->toIso8601String(),
+                'available' => $available,
+            ];
+
+            $current = $slotEnd;
+        }
+
+        return $slots;
     }
 
     public function getUserBookings(User $user): Collection

@@ -3,8 +3,8 @@
 namespace App\Repositories;
 
 use App\Models\Booking;
-use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
 class BookingRepository
@@ -31,14 +31,8 @@ class BookingRepository
 
     public function findByUser(int $userId): Collection
     {
-        $userName = User::query()->whereKey($userId)->value('name');
-
-        if (! $userName) {
-            return new Collection;
-        }
-
         return Booking::query()
-            ->where('user_name', $userName)
+            ->where('user_id', $userId)
             ->orderBy('start_time')
             ->get();
     }
@@ -50,6 +44,28 @@ class BookingRepository
             ->whereDate('start_time', $date)
             ->orderBy('start_time')
             ->get();
+    }
+
+    public function getRoomBookings(int $roomId, ?string $date, ?string $dateFrom, ?string $dateTo, ?int $perPage = null): Collection|LengthAwarePaginator
+    {
+        $query = Booking::query()
+            ->where('room_id', $roomId)
+            ->orderBy('start_time');
+
+        if ($dateFrom && $dateTo) {
+            $query->whereBetween('start_time', [
+                Carbon::parse($dateFrom),
+                Carbon::parse($dateTo),
+            ]);
+        } elseif ($date) {
+            $query->whereDate('start_time', $date);
+        }
+
+        if ($perPage !== null) {
+            return $query->paginate($perPage);
+        }
+
+        return $query->get();
     }
 
     public function delete(int $id): bool

@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class BookingController extends Controller
 {
@@ -20,7 +21,7 @@ class BookingController extends Controller
     public function store(StoreBookingRequest $request): BookingResource|JsonResponse
     {
         $data = $request->validated();
-        $data['user_name'] = $request->user()->name;
+        $data['user_id'] = $request->user()->id;
 
         try {
             $booking = $this->bookingService->createBooking($data, $request->user());
@@ -30,7 +31,7 @@ class BookingController extends Controller
             ], 409);
         }
 
-        $booking->load('room');
+        $booking->load(['room', 'user']);
 
         return (new BookingResource($booking))
             ->additional([])
@@ -41,9 +42,10 @@ class BookingController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Booking::query()->orderBy('start_time');
+        $perPage = min((int) $request->input('per_page', 20), 100);
 
         if ($request->filled('filter') && $request->filter === 'mine') {
-            $query->where('user_name', $request->user()->name);
+            $query->where('user_id', $request->user()->id);
         }
 
         if ($request->filled('room_id')) {
@@ -61,7 +63,7 @@ class BookingController extends Controller
             $query->whereDate('start_time', $request->date);
         }
 
-        return BookingResource::collection($query->with('room')->get());
+        return BookingResource::collection($query->with(['room', 'user'])->paginate($perPage));
     }
 
     public function destroy(int $id, Request $request): JsonResponse
@@ -74,7 +76,7 @@ class BookingController extends Controller
 
         $user = $request->user();
 
-        if (!$user->is_admin && $booking->user_name !== $user->name) {
+        if (!$user->is_admin && $booking->user_id !== $user->id) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -91,18 +93,24 @@ class BookingController extends Controller
             abort(404, 'Room not found');
         }
 
-        $query = Booking::where('room_id', $roomId)->orderBy('start_time');
+        $perPage = min((int) $request->input('per_page', 20), 100);
+        $bookings = $this->bookingService->getRoomBookings(
+            $roomId,
+            $request->input('date'),
+            $request->input('date_from'),
+            $request->input('date_to'),
+            $perPage
+        );
 
-        if ($request->filled('date_from') && $request->filled('date_to')) {
-            $query->whereBetween('start_time', [
-                Carbon::parse($request->date_from),
-                Carbon::parse($request->date_to),
-            ]);
-        } elseif ($request->filled('date')) {
-            $query->whereDate('start_time', $request->date);
+        if ($bookings instanceof LengthAwarePaginator) {
+            $bookings->getCollection()->load(['room', 'user']);
+
+            return BookingResource::collection($bookings);
         }
 
-        return BookingResource::collection($query->with('room')->get());
+        $bookings->load(['room', 'user']);
+
+        return BookingResource::collection($bookings);
     }
 
     public function availability(int $roomId, Request $request): JsonResponse
@@ -114,42 +122,7 @@ class BookingController extends Controller
         }
 
         $date = $request->input('date', now()->toDateString());
-        $open = Carbon::parse($date . ' ' . config('coworking.operating_hours.open', '08:00'));
-        $close = Carbon::parse($date . ' ' . config('coworking.operating_hours.close', '18:00'));
-
-        $bookings = Booking::where('room_id', $roomId)
-            ->where('start_time', '<', $close)
-            ->where('end_time', '>', $open)
-            ->orderBy('start_time')
-            ->get();
-
-        $slots = [];
-        $current = $open->copy();
-        $interval = 30;
-
-        while ($current < $close) {
-            $slotEnd = $current->copy()->addMinutes($interval);
-
-            if ($slotEnd > $close) {
-                $slotEnd = $close->copy();
-            }
-
-            $available = true;
-            foreach ($bookings as $booking) {
-                if ($current < $booking->end_time && $slotEnd > $booking->start_time) {
-                    $available = false;
-                    break;
-                }
-            }
-
-            $slots[] = [
-                'start_time' => $current->toIso8601String(),
-                'end_time' => $slotEnd->toIso8601String(),
-                'available' => $available,
-            ];
-
-            $current = $slotEnd;
-        }
+        $slots = $this->bookingService->getAvailabilitySlots($roomId, $date);
 
         return response()->json(['data' => $slots]);
     }

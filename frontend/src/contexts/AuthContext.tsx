@@ -26,12 +26,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const storedToken = localStorage.getItem('auth_token');
-    const storedUser = localStorage.getItem('auth_user');
-    if (storedToken && storedUser) {
+    if (storedToken) {
       setToken(storedToken);
-      try { setUser(JSON.parse(storedUser)); } catch {}
+      import('@/lib/api').then(({ getUser }) => {
+        getUser()
+          .then((response) => {
+            setUser(response.data);
+            localStorage.setItem('auth_user', JSON.stringify(response.data));
+          })
+          .catch(() => {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auth_user');
+            setToken(null);
+            setUser(null);
+          })
+          .finally(() => setLoading(false));
+      });
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   const loginUser = useCallback(async (email: string, password: string) => {

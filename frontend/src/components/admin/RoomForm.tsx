@@ -1,7 +1,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useAuth } from '@/contexts/AuthContext';
 import * as api from '@/lib/api';
 import type { AxiosError } from 'axios';
 import { useState } from 'react';
@@ -11,7 +10,6 @@ import { z } from 'zod';
 const roomSchema = z.object({
   name: z.string().min(1, 'Name is required').max(255),
   capacity: z.number().int().min(1, 'Capacity must be at least 1'),
-  user_name: z.string().min(1, 'User name is required').max(255),
 });
 
 type RoomFormData = z.infer<typeof roomSchema>;
@@ -25,18 +23,6 @@ interface RoomFormProps {
 export default function RoomForm({ room, onSuccess, onCancel }: RoomFormProps) {
   const [error, setError] = useState<string | null>(null);
   const isEditMode = !!room;
-  const { user } = useAuth();
-  const fallbackUserName = typeof window !== 'undefined'
-    ? (() => {
-        try {
-          const storedUser = localStorage.getItem('auth_user');
-          return storedUser ? (JSON.parse(storedUser)?.name ?? '') : '';
-        } catch {
-          return '';
-        }
-      })()
-    : '';
-
   const {
     register,
     handleSubmit,
@@ -47,7 +33,6 @@ export default function RoomForm({ room, onSuccess, onCancel }: RoomFormProps) {
     defaultValues: {
       name: room?.name ?? '',
       capacity: room?.capacity ?? 1,
-      user_name: user?.name ?? fallbackUserName,
     },
   });
 
@@ -98,22 +83,6 @@ export default function RoomForm({ room, onSuccess, onCancel }: RoomFormProps) {
         />
         {errors.name && (
           <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.name.message}</p>
-        )}
-      </div>
-
-      <div>
-        <label htmlFor="room-user-name" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          User Name
-        </label>
-        <input
-          id="room-user-name"
-          type="text"
-          {...register('user_name')}
-          className="mt-1 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
-          data-testid="room-user-name-input"
-        />
-        {errors.user_name && (
-          <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.user_name.message}</p>
         )}
       </div>
 
