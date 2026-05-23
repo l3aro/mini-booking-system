@@ -1,4 +1,12 @@
 import axios, { type AxiosInstance, type AxiosResponse, type InternalAxiosRequestConfig } from "axios";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+import isBetween from "dayjs/plugin/isBetween";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.extend(isBetween);
 
 export interface User {
   id: number;
@@ -155,5 +163,75 @@ export const getAvailability = async (
   });
   return response.data;
 };
+
+// ── Room Status (derived from bookings) ──
+
+export type RoomStatus = 'available' | 'occupied' | 'reserved';
+
+export interface RoomStatusInfo {
+  room: Room;
+  status: RoomStatus;
+  currentBooking: Booking | null;
+  todayBookings: Booking[];
+  nextBooking: Booking | null;
+}
+
+/** Fetch all rooms + today's bookings and derive status for each room. */
+export async function getRoomStatuses(date?: string): Promise<RoomStatusInfo[]> {
+  const [roomsRes, bookingsRes] = await Promise.all([
+    getRooms(),
+    getBookings({ filter: 'all' }),
+  ]);
+
+  const rooms = roomsRes.data;
+  const allBookings = bookingsRes.data;
+
+  const tz = 'Asia/Jakarta';
+  const target = date ? dayjs.tz(date, tz) : dayjs().tz(tz);
+  const targetStart = target.startOf('day');
+  const targetEnd = target.endOf('day');
+
+  const dayBookings = allBookings.filter((b) => {
+    const start = dayjs.utc(b.start_time).tz(tz);
+    return start.isBetween(targetStart, targetEnd, null, '[]');
+  });
+
+  const now = dayjs().tz(tz);
+
+  const statuses: RoomStatusInfo[] = rooms.map((room) => {
+    const roomBookings = dayBookings.filter((b) => b.room_id === room.id);
+
+    roomBookings.sort(
+      (a, b) => dayjs.utc(a.start_time).valueOf() - dayjs.utc(b.start_time).valueOf(),
+    );
+
+    const currentBooking =
+      roomBookings.find((b) => {
+        const start = dayjs.utc(b.start_time).tz(tz);
+        const end = dayjs.utc(b.end_time).tz(tz);
+        return now.isAfter(start) && now.isBefore(end);
+      }) ?? null;
+
+    const nextBooking =
+      roomBookings.find((b) => {
+        const start = dayjs.utc(b.start_time).tz(tz);
+        return start.isAfter(now);
+      }) ?? null;
+
+    let status: RoomStatus = 'available';
+    if (currentBooking) {
+      status = 'occupied';
+    } else if (nextBooking && nextBooking !== currentBooking) {
+      const hoursUntilNext = dayjs.utc(nextBooking.start_time).tz(tz).diff(now, 'hour', true);
+      if (hoursUntilNext <= 2) {
+        status = 'reserved';
+      }
+    }
+
+    return { room, status, currentBooking, todayBookings: roomBookings, nextBooking };
+  });
+
+  return statuses;
+}
 
 export default api;
