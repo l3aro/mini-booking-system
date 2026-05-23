@@ -21,6 +21,11 @@ interface BookingCreateFormProps {
   onSuccess?: () => void;
 }
 
+/** Convert 'YYYY-MM-DDTHH:mm' (local, no tz) to UTC ISO string. */
+function toUTC(localDateTime: string): string {
+  return new Date(localDateTime).toISOString();
+}
+
 export default function BookingCreateForm({ roomId, onSuccess }: BookingCreateFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -39,7 +44,11 @@ export default function BookingCreateForm({ roomId, onSuccess }: BookingCreateFo
     setError(null);
     setSuccess(null);
     try {
-      await createBooking({ room_id: roomId, start_time: data.start_time, end_time: data.end_time });
+      await createBooking({
+        room_id: roomId,
+        start_time: toUTC(data.start_time),
+        end_time: toUTC(data.end_time),
+      });
       setSuccess('Booking created!');
       reset();
       onSuccess?.();

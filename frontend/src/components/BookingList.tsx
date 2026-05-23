@@ -4,13 +4,13 @@ import { useState, useEffect, useCallback } from 'react';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import { getRoomBookings, deleteBooking, type Booking } from '@/lib/api';
+import { getRoomBookings, deleteBooking, getUserTimezone, type Booking } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const formatTime = (time: string) => dayjs.utc(time).tz('Asia/Jakarta').format('HH:mm');
+const formatTime = (time: string) => dayjs.utc(time).tz(getUserTimezone()).format('HH:mm');
 
 interface BookingListProps {
   roomId: number;

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import { RoomStatusInfo, RoomStatus } from '@/lib/api';
+import { RoomStatusInfo, RoomStatus, getUserTimezone } from '@/lib/api';
 import * as api from '@/lib/api';
 import {
   CalendarDays,
@@ -21,7 +21,7 @@ import {
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const TZ = 'Asia/Jakarta';
+const TZ = getUserTimezone();
 
 const STATUS_META: Record<RoomStatus, { label: string; bg: string; dot: string; icon: typeof CheckCircle2 }> = {
   available: {

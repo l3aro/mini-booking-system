@@ -5,10 +5,12 @@ import BookingList from '@/components/BookingList';
 const mockGetRoomBookings = vi.hoisted(() => vi.fn());
 const mockDeleteBooking = vi.hoisted(() => vi.fn());
 const mockUseAuth = vi.hoisted(() => vi.fn());
+const mockGetUserTimezone = vi.hoisted(() => vi.fn(() => 'UTC'));
 
 vi.mock('@/lib/api', () => ({
   getRoomBookings: mockGetRoomBookings,
   deleteBooking: mockDeleteBooking,
+  getUserTimezone: mockGetUserTimezone,
   getRooms: vi.fn(),
   getRoom: vi.fn(),
   createBooking: vi.fn(),

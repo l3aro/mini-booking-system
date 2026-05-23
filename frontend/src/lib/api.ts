@@ -8,6 +8,16 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.extend(isBetween);
 
+/** Detect browser's IANA timezone (fallback UTC if unavailable). */
+export function getUserTimezone(): string {
+  if (typeof Intl === 'undefined' || !Intl.DateTimeFormat) return 'UTC';
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
 export interface User {
   id: number;
   name: string;
@@ -148,9 +158,13 @@ export const deleteBooking = async (id: number): Promise<void> => {
 };
 
 export const getRoomBookings = async (roomId: number, date?: string): Promise<{ data: Booking[] }> => {
-  const response = await api.get<{ data: Booking[] }>(`/rooms/${roomId}/bookings`, {
-    params: { date },
-  });
+  const params: Record<string, string> = {};
+  if (date) {
+    const tz = getUserTimezone();
+    params.date_from = dayjs.tz(date, tz).startOf('day').utc().toISOString();
+    params.date_to = dayjs.tz(date, tz).endOf('day').utc().toISOString();
+  }
+  const response = await api.get<{ data: Booking[] }>(`/rooms/${roomId}/bookings`, { params });
   return response.data;
 };
 
@@ -186,7 +200,7 @@ export async function getRoomStatuses(date?: string): Promise<RoomStatusInfo[]> 
   const rooms = roomsRes.data;
   const allBookings = bookingsRes.data;
 
-  const tz = 'Asia/Jakarta';
+  const tz = getUserTimezone();
   const target = date ? dayjs.tz(date, tz) : dayjs().tz(tz);
   const targetStart = target.startOf('day');
   const targetEnd = target.endOf('day');

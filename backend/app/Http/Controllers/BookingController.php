@@ -50,7 +50,14 @@ class BookingController extends Controller
             $query->where('room_id', $request->room_id);
         }
 
-        if ($request->filled('date')) {
+        // date=YYYY-MM-DD (legacy, UTC-based whereDate)
+        // OR date_from + date_to (UTC ISO strings, browser-computed range)
+        if ($request->filled('date_from') && $request->filled('date_to')) {
+            $query->whereBetween('start_time', [
+                Carbon::parse($request->date_from),
+                Carbon::parse($request->date_to),
+            ]);
+        } elseif ($request->filled('date')) {
             $query->whereDate('start_time', $request->date);
         }
 
@@ -86,7 +93,12 @@ class BookingController extends Controller
 
         $query = Booking::where('room_id', $roomId)->orderBy('start_time');
 
-        if ($request->filled('date')) {
+        if ($request->filled('date_from') && $request->filled('date_to')) {
+            $query->whereBetween('start_time', [
+                Carbon::parse($request->date_from),
+                Carbon::parse($request->date_to),
+            ]);
+        } elseif ($request->filled('date')) {
             $query->whereDate('start_time', $request->date);
         }
 

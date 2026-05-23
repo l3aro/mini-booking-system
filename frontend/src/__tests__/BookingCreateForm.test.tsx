@@ -15,6 +15,11 @@ vi.mock('@/lib/api', async () => {
   };
 });
 
+/** Return UTC ISO string that component produces for a local datetime-local value. */
+function toUTC(localDateTime: string): string {
+  return new Date(localDateTime).toISOString();
+}
+
 describe('BookingCreateForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -37,7 +42,7 @@ describe('BookingCreateForm', () => {
     expect(await screen.findByText('End time must be after start time')).toBeInTheDocument();
   });
 
-  it('calls createBooking on submit', async () => {
+  it('calls createBooking on submit with UTC times', async () => {
     const user = userEvent.setup();
     createBooking.mockResolvedValue({ data: { id: 1 } });
 
@@ -49,8 +54,8 @@ describe('BookingCreateForm', () => {
     await waitFor(() => {
       expect(createBooking).toHaveBeenCalledWith({
         room_id: 7,
-        start_time: '2026-01-01T10:00',
-        end_time: '2026-01-01T11:00',
+        start_time: toUTC('2026-01-01T10:00'),
+        end_time: toUTC('2026-01-01T11:00'),
       });
     });
   });

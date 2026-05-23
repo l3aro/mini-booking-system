@@ -5,14 +5,14 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import { useAuth } from '@/contexts/AuthContext';
-import { Booking } from '@/lib/api';
+import { Booking, getUserTimezone } from '@/lib/api';
 import * as api from '@/lib/api';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
 const formatTime = (time: string) =>
-  dayjs.utc(time).tz('Asia/Jakarta').format('MMM D, HH:mm');
+  dayjs.utc(time).tz(getUserTimezone()).format('MMM D, HH:mm');
 
 export default function AdminBookingPanel() {
   const { isAdmin } = useAuth();
