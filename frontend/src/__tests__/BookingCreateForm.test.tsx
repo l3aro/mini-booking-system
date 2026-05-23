@@ -15,10 +15,11 @@ vi.mock('@/lib/api', async () => {
   };
 });
 
-/** Return UTC ISO string that component produces for a local datetime-local value. */
 function toUTC(localDateTime: string): string {
   return new Date(localDateTime).toISOString();
 }
+
+const defaultDate = '2026-01-01';
 
 describe('BookingCreateForm', () => {
   beforeEach(() => {
@@ -26,17 +27,17 @@ describe('BookingCreateForm', () => {
   });
 
   it('renders form with start_time and end_time inputs', () => {
-    render(<BookingCreateForm roomId={1} />);
+    render(<BookingCreateForm roomId={1} selectedDate={defaultDate} />);
     expect(screen.getByTestId('start-time-input')).toBeInTheDocument();
     expect(screen.getByTestId('end-time-input')).toBeInTheDocument();
   });
 
   it('shows validation error if end before start', async () => {
     const user = userEvent.setup();
-    render(<BookingCreateForm roomId={1} />);
+    render(<BookingCreateForm roomId={1} selectedDate={defaultDate} />);
 
-    await user.type(screen.getByTestId('start-time-input'), '2026-01-01T12:00');
-    await user.type(screen.getByTestId('end-time-input'), '2026-01-01T11:00');
+    await user.type(screen.getByTestId('start-time-input'), '12:00');
+    await user.type(screen.getByTestId('end-time-input'), '11:00');
     await user.click(screen.getByTestId('submit-booking'));
 
     expect(await screen.findByText('End time must be after start time')).toBeInTheDocument();
@@ -46,9 +47,9 @@ describe('BookingCreateForm', () => {
     const user = userEvent.setup();
     createBooking.mockResolvedValue({ data: { id: 1 } });
 
-    render(<BookingCreateForm roomId={7} />);
-    await user.type(screen.getByTestId('start-time-input'), '2026-01-01T10:00');
-    await user.type(screen.getByTestId('end-time-input'), '2026-01-01T11:00');
+    render(<BookingCreateForm roomId={7} selectedDate={defaultDate} />);
+    await user.type(screen.getByTestId('start-time-input'), '10:00');
+    await user.type(screen.getByTestId('end-time-input'), '11:00');
     await user.click(screen.getByTestId('submit-booking'));
 
     await waitFor(() => {
@@ -60,17 +61,17 @@ describe('BookingCreateForm', () => {
     });
   });
 
-  it('calls onSuccess on 201', async () => {
+  it('calls onSuccess on 201 with booking date', async () => {
     const user = userEvent.setup();
     const onSuccess = vi.fn();
     createBooking.mockResolvedValue({ data: { id: 2 } });
 
-    render(<BookingCreateForm roomId={1} onSuccess={onSuccess} />);
-    await user.type(screen.getByTestId('start-time-input'), '2026-01-01T10:00');
-    await user.type(screen.getByTestId('end-time-input'), '2026-01-01T11:00');
+    render(<BookingCreateForm roomId={1} selectedDate={defaultDate} onSuccess={onSuccess} />);
+    await user.type(screen.getByTestId('start-time-input'), '10:00');
+    await user.type(screen.getByTestId('end-time-input'), '11:00');
     await user.click(screen.getByTestId('submit-booking'));
 
-    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(defaultDate));
   });
 
   it('shows overlap error on 409', async () => {
@@ -82,9 +83,9 @@ describe('BookingCreateForm', () => {
       },
     });
 
-    render(<BookingCreateForm roomId={1} />);
-    await user.type(screen.getByTestId('start-time-input'), '2026-01-01T10:00');
-    await user.type(screen.getByTestId('end-time-input'), '2026-01-01T11:00');
+    render(<BookingCreateForm roomId={1} selectedDate={defaultDate} />);
+    await user.type(screen.getByTestId('start-time-input'), '10:00');
+    await user.type(screen.getByTestId('end-time-input'), '11:00');
     await user.click(screen.getByTestId('submit-booking'));
 
     expect(await screen.findByTestId('booking-error')).toHaveTextContent('This time slot overlaps with an existing booking');

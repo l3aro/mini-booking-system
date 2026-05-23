@@ -9,10 +9,17 @@ import BookingCreateForm from './BookingCreateForm';
 export default function RoomDetail() {
   const { selectedRoom, refreshBookings } = useRooms();
   const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'));
+  const [refreshKey, setRefreshKey] = useState(0);
 
   if (!selectedRoom) {
     return null;
   }
+
+  const handleBookingCreated = (bookingDate: string) => {
+    setDate(bookingDate);
+    setRefreshKey((k) => k + 1);
+    refreshBookings();
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -37,12 +44,12 @@ export default function RoomDetail() {
 
       <div className="flex flex-col gap-2">
         <h3 className="text-lg font-medium text-foreground">Bookings</h3>
-        <BookingList roomId={selectedRoom.id} date={date} onDateChange={setDate} />
+        <BookingList roomId={selectedRoom.id} date={date} refreshKey={refreshKey} />
       </div>
 
       <div className="flex flex-col gap-2">
         <h3 className="text-lg font-medium text-foreground">New Booking</h3>
-        <BookingCreateForm roomId={selectedRoom.id} onSuccess={refreshBookings} />
+        <BookingCreateForm roomId={selectedRoom.id} selectedDate={date} onSuccess={handleBookingCreated} />
       </div>
     </div>
   );

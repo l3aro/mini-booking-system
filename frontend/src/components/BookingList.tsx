@@ -15,15 +15,16 @@ const formatTime = (time: string) => dayjs.utc(time).tz(getUserTimezone()).forma
 interface BookingListProps {
   roomId: number;
   date: string;
-  onDateChange?: (date: string) => void;
+  refreshKey?: number;
 }
 
-export default function BookingList({ roomId, date, onDateChange }: BookingListProps) {
+export default function BookingList({ roomId, date, refreshKey }: BookingListProps) {
   const { user, isAdmin } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshKey forces re-fetch when same-date booking created
   const fetchBookings = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -35,7 +36,7 @@ export default function BookingList({ roomId, date, onDateChange }: BookingListP
     } finally {
       setLoading(false);
     }
-  }, [roomId, date]);
+  }, [roomId, date, refreshKey]);
 
   useEffect(() => {
     fetchBookings();
@@ -81,21 +82,6 @@ export default function BookingList({ roomId, date, onDateChange }: BookingListP
 
   return (
     <div data-testid="booking-list" className="flex flex-col gap-3">
-      {onDateChange && (
-        <div className="flex items-center gap-2">
-          <label htmlFor="booking-date-filter" className="text-sm font-medium text-foreground">
-            Date
-          </label>
-          <input
-            id="booking-date-filter"
-            type="date"
-            value={date}
-            onChange={(e) => onDateChange(e.target.value)}
-            className="rounded-md border border-zinc-200 bg-background px-3 py-2 text-sm dark:border-zinc-800"
-            data-testid="booking-date-filter"
-          />
-        </div>
-      )}
 
       {bookings.length === 0 ? (
         <div className="flex items-center justify-center rounded-xl border border-zinc-200 p-8 text-center dark:border-zinc-800">

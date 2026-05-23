@@ -6,10 +6,15 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { createBooking } from '@/lib/api';
 
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
 const bookingSchema = z.object({
   start_time: z.string().min(1, 'Start time is required'),
   end_time: z.string().min(1, 'End time is required'),
-}).refine((data) => new Date(data.end_time) > new Date(data.start_time), {
+}).refine((data) => timeToMinutes(data.end_time) > timeToMinutes(data.start_time), {
   message: 'End time must be after start time',
   path: ['end_time'],
 });
@@ -18,15 +23,15 @@ type BookingFormData = z.infer<typeof bookingSchema>;
 
 interface BookingCreateFormProps {
   roomId: number;
-  onSuccess?: () => void;
+  selectedDate: string; // YYYY-MM-DD from the date picker
+  onSuccess?: (bookingDate: string) => void;
 }
 
-/** Convert 'YYYY-MM-DDTHH:mm' (local, no tz) to UTC ISO string. */
 function toUTC(localDateTime: string): string {
   return new Date(localDateTime).toISOString();
 }
 
-export default function BookingCreateForm({ roomId, onSuccess }: BookingCreateFormProps) {
+export default function BookingCreateForm({ roomId, selectedDate, onSuccess }: BookingCreateFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -46,12 +51,12 @@ export default function BookingCreateForm({ roomId, onSuccess }: BookingCreateFo
     try {
       await createBooking({
         room_id: roomId,
-        start_time: toUTC(data.start_time),
-        end_time: toUTC(data.end_time),
+        start_time: toUTC(`${selectedDate}T${data.start_time}`),
+        end_time: toUTC(`${selectedDate}T${data.end_time}`),
       });
       setSuccess('Booking created!');
       reset();
-      onSuccess?.();
+      onSuccess?.(selectedDate);
     } catch (err: any) {
       if (err.response?.status === 409) {
         setError('This time slot overlaps with an existing booking');
@@ -90,7 +95,7 @@ export default function BookingCreateForm({ roomId, onSuccess }: BookingCreateFo
         </label>
         <input
           id="start_time"
-          type="datetime-local"
+          type="time"
           {...register('start_time')}
           className="mt-1 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
           data-testid="start-time-input"
@@ -106,7 +111,7 @@ export default function BookingCreateForm({ roomId, onSuccess }: BookingCreateFo
         </label>
         <input
           id="end_time"
-          type="datetime-local"
+          type="time"
           {...register('end_time')}
           className="mt-1 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
           data-testid="end-time-input"
