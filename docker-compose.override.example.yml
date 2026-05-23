@@ -1,4 +1,4 @@
 services:
   nginx:
-    ports:
+    ports: !override
       - "8090:80"

@@ -1,5 +1,5 @@
-opencode.json
-.sisyphus/
+# Docker Compose local override
+docker-compose.override.yml
 
 # Laravel / backend
 /backend/vendor/
@@ -24,3 +24,5 @@ opencode.json
 *.swo
 *~
 .DS_Store
+opencode.json
+.sisyphus/
